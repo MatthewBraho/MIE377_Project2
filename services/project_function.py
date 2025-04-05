@@ -10,7 +10,7 @@ def project_function(periodReturns, periodFactRet):
     """
 
     # Initialize BestOptimization Class called stratagy
-    Strategy = BestOptimization(36)
+    Strategy = SharpeRiskParityStrategy(NumObs=36, rf=0.0, c=0.1)
 
     # Executre stratagy and obtain optimal portfolio weights
     x = Strategy.execute_strategy(periodReturns, periodFactRet)

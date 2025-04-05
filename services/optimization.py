@@ -47,10 +47,6 @@ def MVO(mu, Q):
     prob.solve(verbose=False)
     return x.value
 
-import cvxpy as cp
-import numpy as np
-from scipy.stats import chi2
-
 def Robust_MVO(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
     '''
     Robust MVO Optimization:
@@ -148,3 +144,62 @@ def RiskParityOptimization(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
         return None
     
     return result.x
+
+import cvxpy as cp
+import numpy as np
+
+def SharpeRiskParityOptimization(mu, Q, rf=0.0, c=0.1):
+    """
+    Sharpe-Risk Parity Optimization:
+
+    Implements a convex program that combines:
+      1. A fixed excess return constraint: (mu - rf)^T y = 1,
+      2. A variance minimization term: 0.5 * y^T Q y,
+      3. A log-barrier risk parity penalty: - c * sum(log(y)).
+
+    The optimization problem is:
+
+        minimize   0.5 * y^T Q y - c * sum(log(y))
+        subject to (mu - rf)^T y = 1,
+                   y > 0.
+
+    The solution y is then normalized so that the final portfolio weights sum to 1.
+
+    Parameters:
+      mu : numpy array (1D)
+           Vector of expected returns.
+      Q : numpy array (n x n)
+          Covariance matrix.
+      rf : float, optional
+          Risk-free rate (default 0.0).
+      c : float, optional
+          Log-barrier penalty weight (default 0.1).
+
+    Returns:
+      weights : numpy array
+          Optimal portfolio weights that sum to 1, or None if the problem is infeasible.
+    """
+    # Ensure mu is a 1D vector.
+    mu = np.ravel(mu)
+    n = len(mu)
+    
+    # Define the optimization variable y with positivity constraint.
+    y = cp.Variable(n, pos=True)
+    
+    # Define the convex objective.
+    objective = cp.Minimize(0.5 * cp.quad_form(y, Q) - c * cp.sum(cp.log(y)))
+    
+    # Constraint: fix portfolio excess return to 1.
+    constraints = [(mu - rf).T @ y == 1]
+    
+    # Solve the convex problem.
+    prob = cp.Problem(objective, constraints)
+    prob.solve(verbose=False)
+    
+    if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+        return None
+    
+    # Normalize the solution to produce weights summing to 1.
+    y_opt = y.value
+    weights = y_opt / np.sum(y_opt)
+    return weights

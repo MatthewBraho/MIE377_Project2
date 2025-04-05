@@ -144,3 +144,34 @@ class grid_search:
         x = Robust_MVO(mu, Q, T, alpha, lamda, 0.1, self.w_prev)
 
         return x
+
+class SharpeRiskParityStrategy:
+    """
+    Uses historical returns to estimate the expected return and covariance matrix,
+    then applies the Sharpe-Risk Parity convex optimization.
+    """
+
+    def __init__(self, NumObs=30, rf=0.0, c=1.0):
+        self.NumObs = NumObs
+        self.rf = rf
+        self.c = c
+
+    def execute_strategy(self, periodReturns, factorReturns=None):
+        """
+        Executes the Sharpe-Risk Parity strategy.
+        :param periodReturns: DataFrame of asset returns.
+        :param factorReturns: (Optional) DataFrame of factor returns.
+        :return: x, portfolio weights.
+        """
+        # Use the last NumObs observations for estimation.
+        returns = periodReturns.iloc[-self.NumObs:, :]
+        mu = np.ravel(returns.mean(axis=0).values)
+        Q = returns.cov().values
+
+        if factorReturns is not None and "RF" in factorReturns.columns:
+            rf = factorReturns["RF"].iloc[-self.NumObs:].mean()
+        else:
+            rf = self.rf
+
+        x = SharpeRiskParityOptimization(mu, Q, rf=rf, c=self.c)
+        return x
