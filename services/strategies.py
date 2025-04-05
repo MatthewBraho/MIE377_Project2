@@ -67,3 +67,80 @@ class OLS_MVO:
         mu, Q = OLS(returns, factRet)
         x = MVO(mu, Q)
         return x
+
+
+class BestOptimization:
+    """
+    Uses Ridge Cross Validation to get a factor model to predict asset returns and cov matrix
+    Then Robust MVO with a risk adjusted return objective function to determine portfolio weigting
+    """
+
+    def __init__(self, NumObs=30, rf=0):
+        # number of months of data to use for calibration
+        self.NumObs = NumObs  
+
+
+        # Intialized to 0 but could be useful idea
+        self.rf = rf
+
+    def execute_strategy(self, periodReturns, factorReturns):
+        """
+        Executes the portfolio allocation strategy based on the parameters in the __init__
+
+        :param factorReturns: DataFrame with factor returns for each period
+        :param periodReturns: DataFrame with period returns for each asset
+        :return: x (optimized portfolio allocation)
+        """
+        T, n = periodReturns.shape
+
+        # Get the last T observations
+        returns = periodReturns.iloc[(-1) * self.NumObs:, :]
+        factRet = factorReturns.iloc[(-1) * self.NumObs:, :]
+
+        # Get factor-based return estimates and covariance
+        mu, Q= LASSO_CV(returns, factRet)
+
+        # Solve Robust MVO, takes in alpha, lambda and gamma paramters (explained optimization.py)
+        x = RiskParityOptimization(mu, Q, T, 0.85, 2)
+        return x
+    
+
+class grid_search:
+    """
+    Executes the portfolio allocation strategy based on the parameters in the __init__
+    Used to pass in different parameters which is helpful in grid search algorithm
+    """
+
+    def __init__(self, NumObs=36, w_prev=None, rf=0):
+        # number of months of data to use for calibration
+        self.NumObs = NumObs  
+        
+        # Previous weights
+        self.w_prev = w_prev
+
+        # Intialized to 0 but could be useful idea
+        self.rf = rf
+
+    def execute_grid(self, periodReturns, factorReturns, alpha, lamda):
+        """
+        Executes the portfolio allocation strategy based on the parameters in the __init__
+
+        :param factorReturns: DataFrame with factor returns for each period
+        :param periodReturns: DataFrame with period returns for each asset
+        :alpha: Adjustable signifcance level alpha used in Robust MVO
+        :lambda: Adjustable risk averse parameter lambda in Robust MVO (risk adjusted varaince objective)
+        :return: x (optimized portfolio allocation)
+        """
+        T, n = periodReturns.shape
+
+        # Get the last T observations
+        returns = periodReturns.iloc[(-1) * self.NumObs:, :]
+        factRet = factorReturns.iloc[(-1) * self.NumObs:, :]
+
+        # Get factor-based return estimates and covariance
+        mu, Q= LASSO_CV(returns, factRet)
+
+        # Solve Robust MVO (Keep gamma at 0.1 found to be optimal)
+        x = Robust_MVO(mu, Q, T, alpha, lamda, 0.1, self.w_prev)
+
+        return x

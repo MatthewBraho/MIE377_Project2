@@ -8,6 +8,27 @@ def project_function(periodReturns, periodFactRet):
     :param periodFactRet:
     :return: the allocation as a vector
     """
-    Strategy = OLS_MVO()
+
+    # Initialize BestOptimization Class called stratagy
+    Strategy = BestOptimization(36)
+
+    # Executre stratagy and obtain optimal portfolio weights
     x = Strategy.execute_strategy(periodReturns, periodFactRet)
+    return x
+
+
+
+# Called model for Grid Search Process
+def grid_search_function(periodReturns, periodFactRet, x0, num_periods, alpha, lamda):
+    """
+    num_periods: Number of months to calibrate on
+    alpha: Significance level
+    lambda: Risk Averse Parameter
+    """
+
+    # Initialize Grid search class
+    Strategy = grid_search(num_periods, x0)
+
+    # Executre Grid Search Stratagy that returns porfolio weights
+    x = Strategy.execute_grid(periodReturns, periodFactRet, alpha, lamda)
     return x
