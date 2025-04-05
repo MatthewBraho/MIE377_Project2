@@ -151,7 +151,7 @@ class SharpeRiskParityStrategy:
     then applies the Sharpe-Risk Parity convex optimization.
     """
 
-    def __init__(self, NumObs=30, rf=0.0, c=1.0):
+    def __init__(self, NumObs=30, rf=0.0, c=0):
         self.NumObs = NumObs
         self.rf = rf
         self.c = c
