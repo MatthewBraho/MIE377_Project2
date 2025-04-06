@@ -145,10 +145,8 @@ def RiskParityOptimization(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
     
     return result.x
 
-import cvxpy as cp
-import numpy as np
 
-def SharpeRiskParityOptimization(mu, Q, rf=0.0, c=0.1):
+def SharpeRiskParityOptimization(mu, Q, rf=0.0, c=0.1, k=1):
     """
     Sharpe-Risk Parity Optimization:
 
@@ -189,8 +187,8 @@ def SharpeRiskParityOptimization(mu, Q, rf=0.0, c=0.1):
     # Define the convex objective.
     objective = cp.Minimize(0.5 * cp.quad_form(y, Q) - c * cp.sum(cp.log(y)))
     
-    # Constraint: fix portfolio excess return to 1.
-    constraints = [(mu - rf).T @ y == 1]
+    # Constraint: fix excess returns to a value greater than 0. 
+    constraints = [(mu - rf).T @ y == k]
     
     # Solve the convex problem.
     prob = cp.Problem(objective, constraints)
@@ -203,3 +201,34 @@ def SharpeRiskParityOptimization(mu, Q, rf=0.0, c=0.1):
     y_opt = y.value
     weights = y_opt / np.sum(y_opt)
     return weights
+
+def RobustSharpeOptimization(mu, Q, alpha=0.85, k=1, N=36):
+    # Ensure mu is 1D and determine number of assets
+    rf = 0
+    mu = np.ravel(mu)
+    n = len(mu)
+    
+    # Define the CVXPY variable y with positivity constraint.
+    y = cp.Variable(n, pos=True)
+    
+    # Objective: minimize variance with a diversification penalty.
+    objective = cp.Minimize(0.5 * cp.quad_form(y, Q))
+    
+    # Compute the matrix square root of Theta.
+    theta = np.sqrt((1 / N) * np.diag(Q))
+    epsilon = np.sqrt(chi2.ppf(alpha, n))
+    
+    # Robust excess return constraint with constant k:
+    robust_constraint = ((mu - rf).T @ y - epsilon * cp.norm(cp.multiply(theta, y), 2) >= k)
+    
+    # Formulate and solve the problem.
+    prob = cp.Problem(objective, [robust_constraint])
+    prob.solve(verbose=False)
+    
+    if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+        return None
+    
+    # Retrieve the optimal y and normalize it.
+    y_opt = y.value
+    x = y_opt / np.sum(y_opt)
+    return x

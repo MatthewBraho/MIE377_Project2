@@ -151,10 +151,11 @@ class SharpeRiskParityStrategy:
     then applies the Sharpe-Risk Parity convex optimization.
     """
 
-    def __init__(self, NumObs=30, rf=0.0, c=0):
+    def __init__(self, NumObs=30, rf=0.0, c=0.1, k=1):
         self.NumObs = NumObs
         self.rf = rf
         self.c = c
+        self.k = k
 
     def execute_strategy(self, periodReturns, factorReturns=None):
         """
@@ -173,5 +174,31 @@ class SharpeRiskParityStrategy:
         else:
             rf = self.rf
 
-        x = SharpeRiskParityOptimization(mu, Q, rf=rf, c=self.c)
+        x = SharpeRiskParityOptimization(mu, Q, rf=rf, c=self.c, k=self.k)
+        return x
+
+class RobustSharpeStrategy:
+    """
+    Implements a robust strategy that balances Sharpe ratio maximization with diversification,
+    using an ellipsoidal uncertainty set and a tunable constant k in the robust constraint.
+    """
+
+    def __init__(self, NumObs=36, alpha=0.85, k=1):
+        self.NumObs = NumObs
+        self.alpha = alpha     # Uncertainty set radius.
+        self.k = k          # The constant in the robust constraint.
+
+    def execute_strategy(self, periodReturns, factorReturns=None):
+        """
+        Executes the robust diversified strategy.
+        
+        :param periodReturns: DataFrame of asset returns.
+        :param factorReturns: (Optional) Factor returns, if needed.
+        :return: x, portfolio weights.
+        """
+        returns = periodReturns.iloc[-self.NumObs:, :]
+        mu = returns.mean(axis=0).values
+        Q = returns.cov().values
+
+        x = RobustSharpeOptimization(mu, Q, alpha=self.alpha, k=self.k, N=self.NumObs)
         return x
