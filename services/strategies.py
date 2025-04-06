@@ -101,7 +101,7 @@ class BestOptimization:
         mu, Q= LASSO_CV(returns, factRet)
 
         # Solve Robust MVO, takes in alpha, lambda and gamma paramters (explained optimization.py)
-        x = RiskParityOptimization(mu, Q, T, 0.85, 2)
+        x = RiskParityRobust(Q, n)
         return x
     
 
@@ -141,6 +141,6 @@ class grid_search:
         mu, Q= LASSO_CV(returns, factRet)
 
         # Solve Robust MVO (Keep gamma at 0.1 found to be optimal)
-        x = Robust_MVO(mu, Q, T, alpha, lamda, 0.1, self.w_prev)
+        x = Robust_MVO(Q, n, alpha, lamda, 0.1, self.w_prev)
 
         return x
