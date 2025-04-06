@@ -10,7 +10,7 @@ def project_function(periodReturns, periodFactRet):
     """
 
     # Initialize BestOptimization Class called stratagy
-    Strategy = RobustSharpeStrategy(NumObs=36, alpha=0.95, k=0)
+    Strategy = MixedStrategy(NumObs=36, alpha=0.95, k=0, gamma=0.1)
 
     # Executre stratagy and obtain optimal portfolio weights
     x = Strategy.execute_strategy(periodReturns, periodFactRet)

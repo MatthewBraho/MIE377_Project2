@@ -145,38 +145,6 @@ class grid_search:
 
         return x
 
-class SharpeRiskParityStrategy:
-    """
-    Uses historical returns to estimate the expected return and covariance matrix,
-    then applies the Sharpe-Risk Parity convex optimization.
-    """
-
-    def __init__(self, NumObs=30, rf=0.0, c=0.1, k=1):
-        self.NumObs = NumObs
-        self.rf = rf
-        self.c = c
-        self.k = k
-
-    def execute_strategy(self, periodReturns, factorReturns=None):
-        """
-        Executes the Sharpe-Risk Parity strategy.
-        :param periodReturns: DataFrame of asset returns.
-        :param factorReturns: (Optional) DataFrame of factor returns.
-        :return: x, portfolio weights.
-        """
-        # Use the last NumObs observations for estimation.
-        returns = periodReturns.iloc[-self.NumObs:, :]
-        mu = np.ravel(returns.mean(axis=0).values)
-        Q = returns.cov().values
-
-        if factorReturns is not None and "RF" in factorReturns.columns:
-            rf = factorReturns["RF"].iloc[-self.NumObs:].mean()
-        else:
-            rf = self.rf
-
-        x = SharpeRiskParityOptimization(mu, Q, rf=rf, c=self.c, k=self.k)
-        return x
-
 class RobustSharpeStrategy:
     """
     Implements a robust strategy that balances Sharpe ratio maximization with diversification,
@@ -201,4 +169,19 @@ class RobustSharpeStrategy:
         Q = returns.cov().values
 
         x = RobustSharpeOptimization(mu, Q, alpha=self.alpha, k=self.k, N=self.NumObs)
+        return x
+    
+class MixedStrategy:
+    def __init__(self, NumObs=36, alpha=0.85, k=1, gamma=0.1):
+        self.NumObs = NumObs
+        self.alpha = alpha
+        self.k = k
+        self.gamma = gamma
+    
+    def execute_strategy(self, periodReturns, factorReturns):
+        returns = periodReturns.iloc[-self.NumObs:, :]
+        mu = returns.mean(axis=0).values
+        Q = returns.cov().values
+
+        x = MixedOptimization(mu, Q, alpha=self.alpha, k=self.k, N=self.NumObs, gamma=self.gamma)
         return x

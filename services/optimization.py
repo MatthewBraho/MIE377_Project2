@@ -93,114 +93,25 @@ def Robust_MVO(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
     return w.value
 
 
+def RiskParityRobust(Q, n):
+    y = cp.Variable(n)
+    
+    # Objective: nominal term + penalty for worst-case (robust) uncertainty
+    objective = cp.Minimize(
+        0.5 * cp.quad_form(y, Q) - cp.sum(cp.log(y))
+    )
 
-def RiskParityOptimization(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
-    '''
-    Risk Parity Optimization:
-    Objective: Equalize risk contributions from all assets.
+    constraints = [
+        y >= 0
+    ]
 
-    :param mu: Expected returns vector (not used)
-    :param Q: Covariance matrix (n x n)
-    :param N: Number of periods (unused)
-    :param alpha: Confidence level (unused)
-    :param lambda_reg: Regularization (unused)
-    :param rf: Risk-free rate (unused)
-    :return: Optimal weights w (numpy array)
-    '''
-    
-    n = len(Q)
-    
-    # Initial guess: equal weight
-    w0 = np.ones(n) / n
-    
-    # Portfolio risk
-    def portfolio_risk(w):
-        return np.sqrt(w.T @ Q @ w)
-    
-    # Risk contribution of each asset
-    def risk_contribution(w):
-        sigma = portfolio_risk(w)
-        marginal_contrib = Q @ w
-        return w * marginal_contrib / sigma
-    
-    # Objective: sum of squared differences from average risk contribution
-    def risk_parity_objective(w):
-        rc = risk_contribution(w)
-        avg_rc = np.mean(rc)
-        return np.sum((rc - avg_rc)**2)
-    
-    # Constraints: weights sum to 1, non-negative (long-only)
-    constraints = ({
-        'type': 'eq',
-        'fun': lambda w: np.sum(w) - 1
-    })
-    
-    bounds = [(0, 1) for _ in range(n)]
-    
-    result = minimize(risk_parity_objective, w0, method='SLSQP',
-                      bounds=bounds, constraints=constraints)
-    
-    if not result.success:
-        return None
-    
-    return result.x
-
-
-def SharpeRiskParityOptimization(mu, Q, rf=0.0, c=0.1, k=1):
-    """
-    Sharpe-Risk Parity Optimization:
-
-    Implements a convex program that combines:
-      1. A fixed excess return constraint: (mu - rf)^T y = 1,
-      2. A variance minimization term: 0.5 * y^T Q y,
-      3. A log-barrier risk parity penalty: - c * sum(log(y)).
-
-    The optimization problem is:
-
-        minimize   0.5 * y^T Q y - c * sum(log(y))
-        subject to (mu - rf)^T y = 1,
-                   y > 0.
-
-    The solution y is then normalized so that the final portfolio weights sum to 1.
-
-    Parameters:
-      mu : numpy array (1D)
-           Vector of expected returns.
-      Q : numpy array (n x n)
-          Covariance matrix.
-      rf : float, optional
-          Risk-free rate (default 0.0).
-      c : float, optional
-          Log-barrier penalty weight (default 0.1).
-
-    Returns:
-      weights : numpy array
-          Optimal portfolio weights that sum to 1, or None if the problem is infeasible.
-    """
-    # Ensure mu is a 1D vector.
-    mu = np.ravel(mu)
-    n = len(mu)
-    
-    # Define the optimization variable y with positivity constraint.
-    y = cp.Variable(n, pos=True)
-    
-    # Define the convex objective.
-    objective = cp.Minimize(0.5 * cp.quad_form(y, Q) - c * cp.sum(cp.log(y)))
-    
-    # Constraint: fix excess returns to a value greater than 0. 
-    constraints = [(mu - rf).T @ y == k]
-    
-    # Solve the convex problem.
     prob = cp.Problem(objective, constraints)
     prob.solve(verbose=False)
-    
-    if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+
+    if prob.status != cp.OPTIMAL:
         return None
-    
-    # Normalize the solution to produce weights summing to 1.
-    y_opt = y.value
-    weights = y_opt / np.sum(y_opt)
-    return weights
+
+    return y.value / sum(y.value)
 
 def RobustSharpeOptimization(mu, Q, alpha=0.85, k=1, N=36):
     # Ensure mu is 1D and determine number of assets
@@ -229,6 +140,29 @@ def RobustSharpeOptimization(mu, Q, alpha=0.85, k=1, N=36):
         return None
     
     # Retrieve the optimal y and normalize it.
+    y_opt = y.value
+    x = y_opt / np.sum(y_opt)
+    return x
+
+def MixedOptimization(mu, Q, alpha=0.85, k=1, N=36, gamma=0.1):
+    rf = 0
+    mu = np.ravel(mu)
+    n = len(mu)
+
+    x_rp = RiskParityRobust(Q, n)
+
+    y = cp.Variable(n, pos=True)
+
+    theta = np.sqrt((1 / N) * np.diag(Q))
+    epsilon = np.sqrt(chi2.ppf(alpha, n))
+
+    objective = cp.Minimize(0.5 * cp.quad_form(y, Q) + gamma * cp.sum_squares(y - x_rp)) # x_rp is adjusted to 1, not y. Bad?
+
+    robust_constraint = ((mu - rf).T @ y - epsilon * cp.norm(cp.multiply(theta, y), 2) >= k)
+
+    prob = cp.Problem(objective, [robust_constraint])
+    prob.solve(verbose=False)
+
     y_opt = y.value
     x = y_opt / np.sum(y_opt)
     return x
