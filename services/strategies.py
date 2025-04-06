@@ -98,10 +98,11 @@ class BestOptimization:
         factRet = factorReturns.iloc[(-1) * self.NumObs:, :]
 
         # Get factor-based return estimates and covariance
-        mu, Q= LASSO_CV(returns, factRet)
+        mu, Q = LASSO_CV(returns, factRet)
 
         # Solve Robust MVO, takes in alpha, lambda and gamma paramters (explained optimization.py)
-        x = RiskParityOptimization(mu, Q, T, 0.85, 2)
+        # x = RiskParityOptimization(mu, Q, T, 0.85, 2)
+        x = Robust_MVO(mu, Q)
         return x
     
 
