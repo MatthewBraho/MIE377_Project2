@@ -101,7 +101,7 @@ class BestOptimization:
         mu, Q= LASSO_CV(returns, factRet)
 
         # Solve Robust MVO, takes in alpha, lambda and gamma paramters (explained optimization.py)
-        x = RiskParityRobust(Q, n)
+        x = Robust_MVO(mu, Q)
         return x
     
 
@@ -111,17 +111,14 @@ class grid_search:
     Used to pass in different parameters which is helpful in grid search algorithm
     """
 
-    def __init__(self, NumObs=36, w_prev=None, rf=0):
+    def __init__(self, NumObs=36, rf=0):
         # number of months of data to use for calibration
         self.NumObs = NumObs  
-        
-        # Previous weights
-        self.w_prev = w_prev
 
         # Intialized to 0 but could be useful idea
         self.rf = rf
 
-    def execute_grid(self, periodReturns, factorReturns, alpha, lamda):
+    def execute_grid(self, periodReturns, factorReturns, num_periods, lambda_RP, lamda_S, z, model):
         """
         Executes the portfolio allocation strategy based on the parameters in the __init__
 
@@ -141,6 +138,6 @@ class grid_search:
         mu, Q= LASSO_CV(returns, factRet)
 
         # Solve Robust MVO (Keep gamma at 0.1 found to be optimal)
-        x = Robust_MVO(Q, n, alpha, lamda, 0.1, self.w_prev)
+        x = grid_optimization(mu, Q, n, lambda_RP, lamda_S, z, model)
 
         return x

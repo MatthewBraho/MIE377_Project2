@@ -19,7 +19,7 @@ def project_function(periodReturns, periodFactRet):
 
 
 # Called model for Grid Search Process
-def grid_search_function(periodReturns, periodFactRet, x0, num_periods, alpha, lamda):
+def grid_search_function(periodReturns, periodFactRet, num_periods,lambda_RP, lamda_S, z, model):
     """
     num_periods: Number of months to calibrate on
     alpha: Significance level
@@ -27,8 +27,8 @@ def grid_search_function(periodReturns, periodFactRet, x0, num_periods, alpha, l
     """
 
     # Initialize Grid search class
-    Strategy = grid_search(num_periods, x0)
+    Strategy = grid_search(num_periods)
 
     # Executre Grid Search Stratagy that returns porfolio weights
-    x = Strategy.execute_grid(periodReturns, periodFactRet, alpha, lamda)
+    x = Strategy.execute_grid(periodReturns, periodFactRet, num_periods, lambda_RP, lamda_S, z, model)
     return x
