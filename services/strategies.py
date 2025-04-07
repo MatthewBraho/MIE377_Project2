@@ -101,7 +101,7 @@ class BestOptimization:
         mu, Q= LASSO_CV(returns, factRet)
 
         # Solve Robust MVO, takes in alpha, lambda and gamma paramters (explained optimization.py)
-        x = Robust_MVO(mu, Q)
+        x = mix_method(0.75, mu, Q, n)
         return x
     
 
