@@ -51,7 +51,7 @@ import cvxpy as cp
 import numpy as np
 from scipy.stats import chi2
 
-def Robust_MVO(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
+def Robust_MVO(mu, Q, N=250, alpha=0.95, lambda_reg=17, rf=0.00):
     '''
     Robust MVO Optimization:
     Objective: Maximize excess return minus robustness penalty and regularization term.
@@ -72,7 +72,7 @@ def Robust_MVO(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
     # w: continuous portfolio weights.
     # y: binary asset selection variable.
     w = cp.Variable(n)
-    y = cp.Variable(n, boolean=True)
+    y = cp.Variable(n)
 
     # Robustness parameters:
     theta = np.sqrt((1 / N) * np.diag(Q))
@@ -93,8 +93,6 @@ def Robust_MVO(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
     constraints = [
         cp.sum(w) == 1,
         w >= 0,
-        w <= y,              # if y[i] == 0 then w[i] must be 0
-        cp.sum(y) <= 10      # select at most 10 assets
     ]
 
     # Define and solve the problem using a mixed-integer solver (e.g., GUROBI).
@@ -248,3 +246,45 @@ def RiskParity_turnover2(Q, n, lamda = 0.5):
         return None
 
     return y.value / sum(y.value)
+
+def Sharpe_turnover(mu, Q, n, lamda):
+    y = cp.Variable(n)
+    k = cp.Variable(1)
+
+    objective = cp.Minimize(cp.quad_form(y,Q) + lamda*cp.norm2(y-cp.mean(y)-np.ones(n)))
+
+    constraints = [
+        (mu).T@y == 1,
+        y >= 0,
+        k >= 0,
+        cp.sum(y) == k
+    ]
+
+    prob = cp.Problem(objective, constraints)
+    prob.solve(verbose=False)
+
+    if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+        return None
+    
+    return y.value/sum(y.value)
+
+def Sharpe(mu, Q, n):
+    y = cp.Variable(n)
+    k = cp.Variable(1)
+
+    objective = cp.Minimize(cp.quad_form(y,Q))
+
+    constraints = [
+        (mu).T@y == 1,
+        y >= 0,
+        k >= 0,
+        cp.sum(y) == k
+    ]
+
+    prob = cp.Problem(objective, constraints)
+    prob.solve(verbose=False)
+
+    if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+        return None
+    
+    return y.value/sum(y.value)
