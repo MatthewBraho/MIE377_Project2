@@ -93,7 +93,7 @@ def Robust_MVO(mu, Q, N=250, alpha=0.9, lambda_reg=20, rf=0.00):
     return w.value
 
 
-def RiskParityRobust(Q, n):
+def RiskParity(Q, n):
     y = cp.Variable(n)
     
     # Objective: nominal term + penalty for worst-case (robust) uncertainty
@@ -113,6 +113,32 @@ def RiskParityRobust(Q, n):
 
     return y.value / sum(y.value)
 
+def SharpeOptimization(mu, Q, k, N):
+    rf = 0
+    mu = np.ravel(mu)
+    n = len(mu)
+
+    # Define the CVXPY variable y with positivity constraint.
+    y = cp.Variable(n, nonneg=True)
+
+    # Objective: maximize Sharpe ratio with a diversification penalty.
+    objective = cp.Minimize(cp.quad_form(y, Q))
+
+    # Robust excess return constraint:
+    constraint = ((mu - rf).T @ y == k)
+
+    # Formulate and solve the problem.
+    prob = cp.Problem(objective, [constraint])
+    prob.solve(verbose=False)
+
+    if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+        return None
+
+    # Retrieve the optimal y and normalize it.
+    y_opt = y.value
+    x = y_opt / np.sum(y_opt)
+    return x
+
 def RobustSharpeOptimization(mu, Q, alpha=0.85, k=1, N=36):
     # Ensure mu is 1D and determine number of assets
     rf = 0
@@ -120,10 +146,10 @@ def RobustSharpeOptimization(mu, Q, alpha=0.85, k=1, N=36):
     n = len(mu)
     
     # Define the CVXPY variable y with positivity constraint.
-    y = cp.Variable(n, pos=True)
+    y = cp.Variable(n, nonneg=True)
     
     # Objective: minimize variance with a diversification penalty.
-    objective = cp.Minimize(0.5 * cp.quad_form(y, Q))
+    objective = cp.Minimize(cp.quad_form(y, Q))
     
     # Compute the matrix square root of Theta.
     theta = np.sqrt((1 / N) * np.diag(Q))
@@ -137,7 +163,7 @@ def RobustSharpeOptimization(mu, Q, alpha=0.85, k=1, N=36):
     prob.solve(verbose=False)
     
     if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
-        return None
+        return RobustSharpeOptimization(mu, Q, alpha/1.1, k, N)
     
     # Retrieve the optimal y and normalize it.
     y_opt = y.value
@@ -149,20 +175,21 @@ def MixedOptimization(mu, Q, alpha=0.85, k=1, N=36, gamma=0.1):
     mu = np.ravel(mu)
     n = len(mu)
 
-    x_rp = RiskParityRobust(Q, n)
+    x_rp = RiskParity(Q, n)
 
-    y = cp.Variable(n, pos=True)
+    y = cp.Variable(n)
 
     theta = np.sqrt((1 / N) * np.diag(Q))
     epsilon = np.sqrt(chi2.ppf(alpha, n))
 
-    objective = cp.Minimize(0.5 * cp.quad_form(y, Q) + gamma * cp.sum_squares(y - x_rp)) # x_rp is adjusted to 1, not y. Bad?
+    objective = cp.Minimize(0.5 * cp.quad_form(y, Q) + gamma * cp.sum_squares(y - x_rp * cp.sum(y)))
 
-    robust_constraint = ((mu - rf).T @ y - epsilon * cp.norm(cp.multiply(theta, y), 2) >= k)
+    robust_constraint = [((mu - rf).T @ y - epsilon * cp.norm(cp.multiply(theta, y), 2) >= k)]
 
-    prob = cp.Problem(objective, [robust_constraint])
+    prob = cp.Problem(objective, robust_constraint)
     prob.solve(verbose=False)
 
     y_opt = y.value
     x = y_opt / np.sum(y_opt)
     return x
+

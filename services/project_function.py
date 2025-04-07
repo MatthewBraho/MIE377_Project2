@@ -10,10 +10,12 @@ def project_function(periodReturns, periodFactRet):
     """
 
     # Initialize BestOptimization Class called stratagy
-    Strategy = MixedStrategy(NumObs=36, alpha=0.95, k=0, gamma=0.1)
+    Strategy = RobustSharpeStrategy(NumObs=36, alpha=0.95, k=1)
 
     # Executre stratagy and obtain optimal portfolio weights
     x = Strategy.execute_strategy(periodReturns, periodFactRet)
+    
+
     return x
 
 # Called model for Grid Search Process

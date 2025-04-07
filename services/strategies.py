@@ -101,7 +101,7 @@ class BestOptimization:
         mu, Q= LASSO_CV(returns, factRet)
 
         # Solve Robust MVO, takes in alpha, lambda and gamma paramters (explained optimization.py)
-        x = RiskParityOptimization(mu, Q, T, 0.85, 2)
+        x = RiskParity(Q, T)
         return x
     
 
