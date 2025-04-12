@@ -92,11 +92,12 @@ class BestOptimization:
         :return: x (optimized portfolio allocation)
         """
         T, n = periodReturns.shape
+        
 
         # Get the last T observations
         returns = periodReturns.iloc[(-1) * self.NumObs:, :]
         factRet = factorReturns.iloc[(-1) * self.NumObs:, :]
-
+        
         # Get factor-based return estimates and covariance
         mu, Q= LASSO_CV(returns, factRet)
 

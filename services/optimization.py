@@ -96,55 +96,87 @@ def Robust_MVO(mu, Q, N=250, alpha=0.95, lambda_reg=10, rf=0.00):
 
 def RiskParity(Q, n):
 
+    '''
+    This function performs normal risk parity with the convex formulation
+    '''
+
+    # Define un-normalized weights
     y = cp.Variable(n)
+
+    #Set objective in the form
+    # min : 1/2 * y_t * Q *y  - c sum(y_i)
 
     objective = cp.Minimize(
         0.5 * cp.quad_form(y, Q) - cp.sum(cp.log(y))
     )
 
+    #Constraint that y must be greater than 0
     constraints = [
         y >= 0
     ]
 
+    # Solve for y
     prob = cp.Problem(objective, constraints)
     prob.solve(verbose=False)
 
     if prob.status != cp.OPTIMAL:
         return None
 
+    # Return the normalized weights
+
     return y.value / sum(y.value)
 
 
 def RiskParity_turnover(Q, n, lamda):
+
+    '''
+    Performs risk parity but applies a penalty to ensure all the weights don't
+    deviate from equal weights too much.
+    The magnitude of this penalty is enforced by lambda which is a tunable parameter.
+    '''
+    # Define un-normalized weights y
     y = cp.Variable(n)
 
+    # Define obective in form: 
+    # min : 1/2 * y_t * Q *y  - c sum(y_i) - lambda * l2 norm (y - equal weights)
     objective = cp.Minimize(
         0.5 * cp.quad_form(y, Q)
         - cp.sum(cp.log(y))
         + lamda * cp.norm2(y - cp.mean(y) * np.ones(n))
     )
 
+    # Apply constraint on y>=0
     constraints = [
         y >= 0
     ]
 
+    # Solve problem
     prob = cp.Problem(objective, constraints)
     prob.solve(solver=cp.ECOS_BB, verbose=False)
 
     if prob.status != cp.OPTIMAL:
         return None
     
+    # Return normalized weights
     return y.value / sum(y.value)
 
 
 
 def Sharpe(mu, Q,n):
+
+    # Create un-normalized weights y and value k
     y = cp.Variable(n)
     k = cp.Variable(1)
 
-
-    objective = cp.Minimize(cp.quad_form(y,Q)  )
+    # Define Max Sharpe Objective in the form:
+    #min: y_t * Q * y
+    objective = cp.Minimize(cp.quad_form(y,Q))
     
+    #S.T:
+        #(mu)_T * y = 1
+        # y>= 0
+        # k>= 0
+        # sum of all y = k by sharpe ratio optimization
     constraints = [
         (mu).T@y  == 1, 
         y>= 0,
@@ -152,54 +184,84 @@ def Sharpe(mu, Q,n):
         cp.sum(y) == k
     ]
 
+    # Optimize Model and solve
     prob = cp.Problem(objective, constraints)
     prob.solve(verbose=False)
 
     if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
         return None
 
+    # Return normalized y values to get weights
+
     return y.value/sum(y.value)
 
 
 def Sharpe_turnover(mu, Q,n, lamda, alpha = 0.9):
 
+    # Create un-normalized weights y and value k
     y = cp.Variable(n)
     
+
+    # Define Max Sharpe Objective in the form:
+    #min: y_t * Q * y - lambda* l2 norm (y - equal weights)
     objective = cp.Minimize(cp.quad_form(y,Q) 
                             + lamda * cp.norm2(y - cp.mean(y) * np.ones(n))
                             )
     
-    N = Q.shape[0]
+    # Apply a robust approach when possible
+
+    # Get number of observations (we have trained and always keep this to 36)
+    N = 36
+
+    # Calculate theta matrix
     theta = np.sqrt((1 / N) * np.diag(Q))
+
+    # Determine Epsilon using chi sqaured distribution
     epsilon = np.sqrt(chi2.ppf(alpha, n))
 
+    # Set robust constraints by penalzing mu vector to robustify it
     constraints = [
         (mu).T@y - epsilon * cp.norm(cp.multiply(theta, y), 2) >= 1, 
         y>= 0    ]
 
+    # Solve problem
     prob = cp.Problem(objective, constraints)
     prob.solve(verbose=False)
+
+    # When problem is not solvable due to large variance in data change confidence until solution is allowed
+    # This ensure we are robust and account for uncertainty where possible and as much as we can
 
     if prob.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
         return Sharpe_turnover(mu, Q,n, lamda, alpha*0.9)
 
+    # Return normalized weights
     return y.value/sum(y.value)
 
 
 def mix_method(z, mu, Q, n, lamda_RP, lamda_S):
 
+    '''
+    Resampling of the Max Sharpe and the Risk Parity Methods
+    each with penalties on equal weighting
+    '''
+
+
+    # Pass in parameters for Sharpe Optimization with penalty on equal weighting
     x_1 = Sharpe_turnover(mu, Q, n, lamda_S)
+    # Pass in parameters for Risk Parity Optimization with penalty on equal weighting
     x_2 = RiskParity_turnover(Q, n, lamda_RP)
 
+    #Sample each distribution and find weighted summation to get final weights
     x_avg = (1-z)*x_1 + z*x_2
+
+
     return x_avg
 
 
 def grid_optimization(mu, Q, n, lamda_RP, lamda_S, z, model):
-    
-    # Iterate over time available to train 30, 36, 40
-    # for all
-
+    '''
+    This function was used for training and a grid search to take in multiple differnet combination
+    of paramters for differnet models and return the optimization'''
     if model == 0:
         # Loop through lambda 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2
         return RiskParity_turnover(Q, n, lamda_RP)
