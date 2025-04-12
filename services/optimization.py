@@ -186,10 +186,10 @@ def Sharpe_turnover(mu, Q,n, lamda, alpha = 0.9):
     return y.value/sum(y.value)
 
 
-def mix_method(z, mu, Q, n):
+def mix_method(z, mu, Q, n, lamda_RP, lamda_S):
 
-    x_1 = Sharpe_turnover(mu, Q, n, 15)
-    x_2 = RiskParity_turnover(Q, n, 0.5)
+    x_1 = Sharpe_turnover(mu, Q, n, lamda_S)
+    x_2 = RiskParity_turnover(Q, n, lamda_RP)
 
     x_avg = (1-z)*x_1 + z*x_2
     return x_avg
@@ -210,4 +210,4 @@ def grid_optimization(mu, Q, n, lamda_RP, lamda_S, z, model):
         # Loop through lamda_RP 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2
         # Loop through lamda_S 10,12.5, 15, 17.5, 20
         # z = 0.25, 0.5, 0.75
-        return mix_method(z, mu, Q, n)
+        return mix_method(z, mu, Q, n, lamda_RP, lamda_S)

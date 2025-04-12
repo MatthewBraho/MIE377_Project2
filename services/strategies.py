@@ -100,8 +100,9 @@ class BestOptimization:
         # Get factor-based return estimates and covariance
         mu, Q= LASSO_CV(returns, factRet)
 
-        # Solve Robust MVO, takes in alpha, lambda and gamma paramters (explained optimization.py)
-        x = mix_method(0.75, mu, Q, n)
+        # Solve optimzation sampling buy weighted sum of risk parity and max sharpe ratio model
+        # takes weight of risk parity contribution, mu, Q, and penalty terms for deviation from equal weigting (explained optimization.py)
+        x = mix_method(0.75, mu, Q, n, 0.75, 8)
         return x
     
 
